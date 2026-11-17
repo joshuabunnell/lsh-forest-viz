@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LSH Forest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@700&family=Source+Sans+3:wght@400;600&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #ffffff;
+      --panel: #f4f5f7;
+      --ink: #1f2328;
+      --ink-2: #4b5563;
+      --ink-3: #646b75;
+      --rule: #d9dde3;
+      --dot: #9aa3ad;
+      --index: #d7263d;
+      --truth: #2f6db5;
+      --index-tint: rgba(215, 38, 61, 0.07);
+      --strip-strong: rgba(31, 35, 40, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      font-variant-numeric: tabular-nums;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 16px 96px;
+    }
+
+    header {
+      padding: 40px 0 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px 24px;
+    }
+
+    header h1 {
+      font-family: "Roboto Slab", Georgia, serif;
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: var(--index);
+      margin: 0;
+    }
+
+    section {
+      padding-top: 16px;
+    }
+
+    h2 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin: 0 0 20px;
+    }
+
+    .play {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 272px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 820px) {
+      .play {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .stage {
+      position: relative;
+    }
+
+    .stage svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: var(--panel);
+      border-radius: 6px;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .stage svg:focus-visible {
+      outline: 2px solid var(--index);
+      outline-offset: 2px;
+    }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 48px;
+      margin: 16px 0 0;
+    }
+
+    .stats dt {
+      font-size: 0.88rem;
+      color: var(--ink-2);
+    }
+
+    .stats dd {
+      margin: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 1.6rem;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .stats .of {
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--ink-3);
+    }
+
+    .stats .off {
+      color: var(--ink-3);
+    }
+
+    .key {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 4px 0 0;
+      padding: 0;
+      list-style: none;
+      color: var(--ink-2);
+      font-size: 0.92rem;
+    }
+
+    .key li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .key i {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .rail {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .rail label {
+      display: block;
+      font-size: 0.92rem;
+      color: var(--ink-2);
+    }
+
+    .rail label span {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+
+    .rail label span output {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .rail input[type=range] {
+      width: 100%;
+      accent-color: var(--ink);
+      margin: 0;
+    }
+
+    .used {
+      font-size: 0.92rem;
+      color: var(--ink-2);
+      opacity: 0.7;
+    }
+
+    .used>span {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .used .segs {
+      display: flex;
+      gap: 2px;
+    }
+
+    .used .segs i {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--rule);
+    }
+
+    .used .segs i.on {
+      background: var(--ink-2);
+    }
+
+    .rail .group {
+      padding: 14px;
+      background: var(--panel);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .rail .group h3 {
+      margin: 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--ink-2);
+    }
+
+    .rail .seg {
+      display: flex;
+      gap: 4px;
+    }
+
+    .rail .seg button,
+    .rail>button {
+      font: inherit;
+      font-size: 0.92rem;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 1px solid var(--rule);
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    .rail .seg button {
+      flex: 1;
+    }
+
+    .rail .seg button[aria-pressed=true] {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: var(--ink);
+    }
+
+    .rail .seg button:focus-visible,
+    .rail>button:focus-visible {
+      outline: 2px solid var(--index);
+      outline-offset: 2px;
+    }
+
+    .sr {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>
+      <h1>LSH Forest</h1>
+    </header>
+
+    <section id="index">
+      <h2 class="sr">Index</h2>
+      <div class="play">
+        <div class="stage">
+          <svg id="stage" viewBox="0 0 600 600" role="img" aria-labelledby="stage-title" tabindex="0"
+            aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight">
+            <title id="stage-title">Points, the hash strips of one layer, and the candidates the index examines for the
+              query. Use the arrow keys to move the query, with Shift for bigger steps.</title>
+            <g id="plot"></g>
+          </svg>
+          <dl class="stats">
+            <div>
+              <dt>Examined</dt>
+              <dd><span id="s-exam"></span><span class="of" id="s-exam-of"></span></dd>
+            </div>
+            <div>
+              <dt>Nearest found</dt>
+              <dd><span id="s-found"></span><span class="of" id="s-found-of"></span></dd>
+            </div>
+            <div>
+              <dt id="s-label-dt"></dt>
+              <dd id="s-label"></dd>
+            </div>
+          </dl>
+        </div>
+        <div class="rail">
+          <div class="group">
+            <h3>Data</h3>
+            <div class="seg" role="group" aria-label="Distribution">
+              <button type="button" data-dist="uniform" aria-pressed="false">Uniform</button>
+              <button type="button" data-dist="clustered" aria-pressed="true">Clustered</button>
+            </div>
+            <label><span>Points<output id="n-out"></output></span><input type="range" id="n" min="50" max="800"
+                step="50" value="300"></label>
+          </div>
+          <div class="group">
+            <h3>Index</h3>
+            <label><span>Hashes per layer (h)<output id="h-out"></output></span><input type="range" id="h" min="1"
+                max="6" value="3"></label>
+            <label><span>Layers (L)<output id="L-out"></output></span><input type="range" id="L" min="1" max="6"
+                value="3"></label>
+            <label><span>Strip width (w)<output id="w-out"></output></span><input type="range" id="w" min="20" max="240"
+                step="5" value="90"></label>
+            <label><span>Neighbors (k)<output id="k-out"></output></span><input type="range" id="k" min="1" max="20"
+                value="5"></label>
+          </div>
+          <div class="group">
+            <h3>View</h3>
+            <label><span>Layer shown<output id="layer-out"></output></span><input type="range" id="layer" min="1"
+                max="3" value="1"></label>
+            <div class="used"><span>Hashes used<span id="x-out"></span></span>
+              <div class="segs" id="x-segs" aria-hidden="true"></div>
+            </div>
+          </div>
+          <button type="button" id="reseed">New points</button>
+          <ul class="key">
+            <li><i style="background:var(--index); opacity:0.45; width:8px; height:8px; margin:2px"></i>Examined</li>
+            <li><i style="background:var(--index)"></i>Returned</li>
+            <li><i style="background:var(--truth)"></i>True nearest</li>
+            <li><i style="background:var(--truth); box-shadow: 0 0 0 3px var(--index)"></i>Correct</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    'use strict';
+
+    // Small seeded random generator so "new random points" is reproducible per seed.
+    function rng(seed) {
+      let s = seed >>> 0 || 1;
+      const next = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+      next.gauss = () => { let u = 0, v = 0; while (u === 0) u = next(); v = next(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+      return next;
+    }
+
+    const SIZE = 600;
+    const P = {
+      h: 3, L: 3, w: 90, k: 5, n: 300, dist: 'clustered', seed: 7, layer: 0,
+      query: { x: 300, y: 300 }, points: [], hashes: [],
+    };
+    const $ = id => document.getElementById(id);
+
+    function makePoints() {
+      const r = rng(P.seed * 7919 + 13);
+      const pts = [];
+      if (P.dist === 'uniform') {
+        for (let i = 0; i < P.n; i++) pts.push({ x: 20 + r() * (SIZE - 40), y: 20 + r() * (SIZE - 40) });
+      } else {
+        const centers = [];
+        for (let c = 0; c < 6; c++) centers.push({ x: 60 + r() * (SIZE - 120), y: 60 + r() * (SIZE - 120) });
+        for (let i = 0; i < P.n; i++) {
+          const c = centers[Math.floor(r() * centers.length)];
+          pts.push({ x: Math.min(SIZE - 8, Math.max(8, c.x + r.gauss() * 32)), y: Math.min(SIZE - 8, Math.max(8, c.y + r.gauss() * 32)) });
+        }
+      }
+      P.points = pts;
+    }
+
+    // Each layer has h random directions; the offset is a fraction of w so it stays
+    // the same shape when w changes. Each layer gets its own random stream so that
+    // changing h or L only adds or drops hashes and leaves the others in place.
+    function makeHashes() {
+      P.hashes = [];
+      for (let l = 0; l < P.L; l++) {
+        const r = rng(P.seed * 104729 + 1 + l * 15485863);
+        const layer = [];
+        for (let j = 0; j < P.h; j++) {
+          const t = r() * Math.PI;
+          layer.push({ ax: Math.cos(t), ay: Math.sin(t), bf: r() });
+        }
+        P.hashes.push(layer);
+      }
+    }
+
+    const hashOf = (f, p) => Math.floor((f.ax * p.x + f.ay * p.y + f.bf * P.w) / P.w);
+    const label = (l, p) => P.hashes[l].map(f => hashOf(f, p));
+    const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+    // One pass over the points gives every prefix length's candidate set at once,
+    // instead of rehashing all points for each x the ascent tries.
+    function sharedPrefixes() {
+      const qlabels = P.hashes.map((_, l) => label(l, P.query));
+      const byLayer = P.hashes.map((f, l) => P.points.map(p => {
+        let j = 0;
+        while (j < P.h && hashOf(f[j], p) === qlabels[l][j]) j++;
+        return j;
+      }));
+      const best = P.points.map((_, i) => Math.max(...byLayer.map(pre => pre[i])));
+      return { byLayer, best };
+    }
+
+    // The index starts at the full label and matches fewer hashes until it has
+    // k * L distinct candidates, the stopping rule in LSHFFileNNScan (whose
+    // candidate factor defaults to L).
+    function autoX(best) {
+      const atLeast = new Array(P.h + 2).fill(0);
+      for (const b of best) atLeast[b]++;
+      for (let x = P.h - 1; x >= 0; x--) atLeast[x] += atLeast[x + 1];
+      for (let x = P.h; x > 0; x--) if (atLeast[x] >= P.k * P.L) return x;
+      return 0;
+    }
+
+    // Clip the canvas square to the cell: the strips of the first x hashes of
+    // one layer that contain the query.
+    function cellPolygon(l, x) {
+      let poly = [{ x: 0, y: 0 }, { x: SIZE, y: 0 }, { x: SIZE, y: SIZE }, { x: 0, y: SIZE }];
+      for (let j = 0; j < x; j++) {
+        const f = P.hashes[l][j];
+        const m = hashOf(f, P.query);
+        const lo = m * P.w - f.bf * P.w, hi = lo + P.w;
+        poly = clip(poly, p => f.ax * p.x + f.ay * p.y - lo);
+        poly = clip(poly, p => hi - (f.ax * p.x + f.ay * p.y));
+      }
+      return poly;
+    }
+
+    function clip(poly, inside) {
+      const out = [];
+      for (let i = 0; i < poly.length; i++) {
+        const a = poly[i], b = poly[(i + 1) % poly.length];
+        const da = inside(a), db = inside(b);
+        if (da >= 0) out.push(a);
+        if ((da >= 0) !== (db >= 0)) {
+          const t = da / (da - db);
+          out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+        }
+      }
+      return out;
+    }
+
+    function stripLines(f) {
+      const corners = [[0, 0], [SIZE, 0], [0, SIZE], [SIZE, SIZE]].map(([x, y]) => f.ax * x + f.ay * y);
+      const lo = Math.floor((Math.min(...corners) + f.bf * P.w) / P.w), hi = Math.ceil((Math.max(...corners) + f.bf * P.w) / P.w);
+      const lines = [];
+      for (let m = lo; m <= hi; m++) {
+        const c = m * P.w - f.bf * P.w;
+        const pts = [];
+        if (Math.abs(f.ay) > 1e-9) {
+          for (const x of [0, SIZE]) { const y = (c - f.ax * x) / f.ay; if (y >= -1e-6 && y <= SIZE + 1e-6) pts.push([x, y]); }
+        }
+        if (Math.abs(f.ax) > 1e-9) {
+          for (const y of [0, SIZE]) { const x = (c - f.ay * y) / f.ax; if (x >= -1e-6 && x <= SIZE + 1e-6) pts.push([x, y]); }
+        }
+        // A line through a corner hits two edges there, so the same point can
+        // appear twice; take the two intersections farthest apart.
+        let seg = null, len = 0;
+        for (let a = 0; a < pts.length; a++) for (let b = a + 1; b < pts.length; b++) {
+          const d = Math.hypot(pts[a][0] - pts[b][0], pts[a][1] - pts[b][1]);
+          if (d > len) { len = d; seg = [pts[a], pts[b]]; }
+        }
+        if (seg && len > 1e-6) lines.push(seg);
+      }
+      return lines;
+    }
+
+    function render() {
+      const { byLayer, best } = sharedPrefixes();
+      const x = autoX(best);
+      $('x-out').textContent = x + ' of ' + P.h;
+      $('x-segs').innerHTML = Array.from({ length: P.h }, (_, j) => `<i${j < x ? ' class="on"' : ''}></i>`).join('');
+
+      const cands = new Set();
+      best.forEach((b, i) => { if (b >= x) cands.add(i); });
+      // Each layer reads every entry sharing at least x hashes, so a point that
+      // matches in several layers is counted once per layer, as in
+      // LSHFFileNNScan.candidatesExamined.
+      const examined = byLayer.reduce((s, pre) => s + pre.filter(j => j >= x).length, 0);
+      const byDist = P.points.map((p, i) => [dist(p, P.query), i]).sort((a, b) => a[0] - b[0]);
+      const truth = new Set(byDist.slice(0, P.k).map(d => d[1]));
+      const returned = byDist.filter(d => cands.has(d[1])).slice(0, P.k).map(d => d[1]);
+      const found = returned.filter(i => truth.has(i)).length;
+
+      const l = P.layer;
+      let svg = '';
+      // Every hash of the shown layer in one shade, so the lines stay put as the
+      // ascent changes; the shaded cell alone shows which hashes are used.
+      P.hashes[l].forEach(f => {
+        svg += '<g stroke="var(--strip-strong)" stroke-width="1">';
+        for (const [[x1, y1], [x2, y2]] of stripLines(f)) svg += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
+        svg += '</g>';
+      });
+      if (x > 0) {
+        const poly = cellPolygon(l, x);
+        if (poly.length) svg += `<polygon points="${poly.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ')}" fill="var(--index-tint)" stroke="var(--index)" stroke-width="1.5"/>`;
+      }
+      const ret = new Set(returned);
+      P.points.forEach((p, i) => {
+        const c = cands.has(i), t = truth.has(i), r = ret.has(i);
+        const fill = t ? 'var(--truth)' : c ? 'var(--index)' : 'var(--dot)';
+        const size = r || t ? 5 : c ? 3.5 : 3;
+        const opacity = r || t ? 1 : c ? 0.45 : 1;
+        svg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${size}" fill="${fill}" opacity="${opacity}"${t && r ? ' stroke="var(--index)" stroke-width="3"' : ''}/>`;
+      });
+      // A crosshair rather than a dot, so the query never reads as one of the data points.
+      const qx = P.query.x.toFixed(1), qy = P.query.y.toFixed(1);
+      svg += `<g stroke="var(--ink)" stroke-width="2" fill="none"><circle cx="${qx}" cy="${qy}" r="9"/>` +
+        `<path d="M${qx} ${qy - 15}V${qy - 4}M${qx} ${+qy + 4}V${+qy + 15}M${qx - 15} ${qy}H${qx - 4}M${+qx + 4} ${qy}H${+qx + 15}"/></g>`;
+      $('plot').innerHTML = svg;
+
+      $('s-exam').textContent = examined;
+      $('s-exam-of').textContent = cands.size + ' distinct';
+      $('s-found').textContent = found;
+      $('s-found-of').textContent = '/ ' + P.k;
+      $('s-label-dt').textContent = P.L > 1 ? `Query label, layer ${l + 1}` : 'Query label';
+      // Dim the hashes past the matched prefix: they are in the label but not used.
+      $('s-label').innerHTML = '(' + label(l, P.query).map((v, j) => j < x ? v : `<span class="off">${v}</span>`).join(', ') + ')';
+    }
+
+    function syncOutputs() {
+      $('h-out').textContent = P.h; $('L-out').textContent = P.L; $('w-out').textContent = P.w;
+      $('k-out').textContent = P.k; $('n-out').textContent = P.n; $('layer-out').textContent = P.layer + 1;
+      $('layer').max = P.L;
+    }
+
+    function rebuild(what) {
+      if (what === 'points') makePoints();
+      if (what === 'hashes' || what === 'points') makeHashes();
+      if (P.layer >= P.L) P.layer = P.L - 1;
+      syncOutputs();
+      render();
+    }
+
+    for (const [id, key, what] of [['h', 'h', 'hashes'], ['L', 'L', 'hashes'], ['w', 'w', 'view'], ['k', 'k', 'view'], ['n', 'n', 'points']]) {
+      $(id).addEventListener('input', e => { P[key] = +e.target.value; rebuild(what); });
+    }
+    $('layer').addEventListener('input', e => { P.layer = e.target.value - 1; syncOutputs(); render(); });
+    $('reseed').addEventListener('click', () => { P.seed++; rebuild('points'); });
+    document.querySelectorAll('[data-dist]').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('[data-dist]').forEach(o => o.setAttribute('aria-pressed', o === b));
+      P.dist = b.dataset.dist; rebuild('points');
+    }));
+
+    // Drag the query with the pointer; the SVG is scaled, so map pointer to viewBox units.
+    {
+      const stage = $('stage');
+      const clamp = v => Math.min(SIZE, Math.max(0, v));
+      let dragging = false, frame = 0;
+      // Pointer events can arrive several times per frame; render once per frame
+      // with the latest position.
+      const setQuery = (x, y) => {
+        P.query = { x: clamp(x), y: clamp(y) };
+        if (!frame) frame = requestAnimationFrame(() => { frame = 0; render(); });
+      };
+      const move = e => {
+        const r = stage.getBoundingClientRect();
+        setQuery((e.clientX - r.left) / r.width * SIZE, (e.clientY - r.top) / r.height * SIZE);
+      };
+      stage.addEventListener('pointerdown', e => { dragging = true; stage.setPointerCapture(e.pointerId); move(e); });
+      stage.addEventListener('pointermove', e => { if (dragging) move(e); });
+      stage.addEventListener('pointerup', () => { dragging = false; });
+      stage.addEventListener('pointercancel', () => { dragging = false; });
+      const steps = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+      stage.addEventListener('keydown', e => {
+        const d = steps[e.key];
+        if (!d) return;
+        e.preventDefault();
+        const step = e.shiftKey ? 50 : 10;
+        setQuery(P.query.x + d[0] * step, P.query.y + d[1] * step);
+      });
+    }
+
+    rebuild('points');
+  </script>
+</body>
+
+</html>
